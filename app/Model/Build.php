@@ -2739,6 +2739,7 @@ class Build
      */
     public function SetBuildConfigure(BuildConfigure $buildConfigure)
     {
+        $buildConfigure->BuildId = $this->Id;
         $this->BuildConfigure = $buildConfigure;
     }
 
