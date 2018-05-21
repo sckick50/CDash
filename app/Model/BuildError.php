@@ -15,6 +15,7 @@
 =========================================================================*/
 namespace CDash\Model;
 
+use CDash\Config;
 use PDO;
 use CDash\Database;
 
@@ -165,5 +166,12 @@ class BuildError
         }
 
         return $marshaled;
+    }
+
+    public function GetUrlForSelf()
+    {
+        $config = Config::getInstance();
+        $url = $config->getBaseUrl();
+        return "{$url}/viewBuildError.php?type={$this->Type}&buildid={$this->BuildId}";
     }
 }
