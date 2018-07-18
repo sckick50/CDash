@@ -16,6 +16,7 @@
 
 require_once 'include/cdashmail.php';
 
+use CDash\Config;
 use CDash\Model\Build;
 use CDash\Model\BuildGroup;
 use CDash\Model\BuildTest;
@@ -27,6 +28,8 @@ use CDash\Model\Project;
 use CDash\Model\Site;
 use CDash\Model\User;
 use CDash\Model\UserProject;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Facades\Mail;
 
 /** Check the email preferences for errors */
 function checkEmailPreferences($emailcategory, $errors, $fixes = false)
@@ -743,9 +746,18 @@ function sendsummaryemail($projectid, $groupid, $errors, $buildid)
 
         // If this is the testing
         if ($CDASH_TESTING_MODE) {
+
             add_log($summaryEmail, 'TESTING: EMAIL', LOG_DEBUG);
             add_log($title, 'TESTING: EMAILTITLE', LOG_DEBUG);
             add_log($messagePlainText, 'TESTING: EMAILBODY', LOG_DEBUG);
+
+
+            $listener = function (Message $message) use ($summaryEmail, $title) {
+                $message->to($summaryEmail);
+                $message->subject($title);
+            };
+
+            Mail::raw($messagePlainText, $listener);
         } else {
             // Send the email
             if (cdashmail("$summaryEmail", $title, $messagePlainText)) {
@@ -869,10 +881,11 @@ function send_email_fix_to_user($userid, $emailtext, $Build, $Project)
     include 'config/config.php';
     include_once 'include/common.php';
 
+    $config = Config::getInstance();
     $serverURI = get_server_URI();
     // In the case of asynchronous submission, the serverURI contains /cdash
     // we need to remove it
-    if ($CDASH_BASE_URL == '' && $CDASH_ASYNCHRONOUS_SUBMISSION) {
+    if ($config->get('CDASH_BASE_URL') == '' && $config->get('CDASH_ASYNCHRONOUS_SUBMISSION')) {
         $serverURI = substr($serverURI, 0, strrpos($serverURI, '/'));
     }
 
@@ -963,10 +976,7 @@ function send_email_fix_to_user($userid, $emailtext, $Build, $Project)
         }
     }
 
-    $serverName = $CDASH_SERVER_NAME;
-    if (strlen($serverName) == 0) {
-        $serverName = $_SERVER['SERVER_NAME'];
-    }
+    $serverName = $config->getServer();
     $messagePlainText .= "\n-CDash on " . $serverName . "\n";
 
     // Find the email
@@ -975,10 +985,18 @@ function send_email_fix_to_user($userid, $emailtext, $Build, $Project)
     $email = $User->GetEmail();
 
     // If this is the testing
-    if ($CDASH_TESTING_MODE) {
+    if ($config->get('CDASH_TESTING_MODE')) {
+
         add_log($email, 'TESTING: EMAIL', LOG_DEBUG);
         add_log($title, 'TESTING: EMAILTITLE', LOG_DEBUG);
         add_log($messagePlainText, 'TESTING: EMAILBODY', LOG_DEBUG);
+
+        $listener = function (Message $message) use ($email, $title) {
+            $message->to($email);
+            $message->subject($title);
+        };
+
+        Mail::raw($messagePlainText, $listener);
         // Record that we have send the email
         set_email_sent($userid, $Build->Id, $emailtext);
     } else {
@@ -1177,9 +1195,17 @@ function send_email_to_address($emailaddress, $emailtext, $Build, $Project)
 
     // If this is the testing
     if ($CDASH_TESTING_MODE) {
+
         add_log($emailaddress, 'TESTING: EMAIL', LOG_DEBUG);
         add_log($title, 'TESTING: EMAILTITLE', LOG_DEBUG);
         add_log($body, 'TESTING: EMAILBODY', LOG_DEBUG);
+
+        $listener = function (Message $message) use ($emailaddress, $title) {
+            $message->to($emailaddress);
+            $message->subject($title);
+        };
+
+        Mail::raw($body, $listener);
         $sent = true;
     } else {
         // Send the email
@@ -1418,6 +1444,14 @@ function send_update_email($handler, $projectid)
                 add_log($to_address, 'TESTING: EMAIL', LOG_DEBUG);
                 add_log($subject, 'TESTING: EMAILTITLE', LOG_DEBUG);
                 add_log($body, 'TESTING: EMAILBODY', LOG_DEBUG);
+
+                $listener = function (Message $message) use ($to_address, $subject) {
+                    $message->to($to_address);
+                    $message->subject($subject);
+                };
+
+                Mail::raw($body, $listener);
+
             } else {
                 if (cdashmail("$to_address", $subject, $body)) {
                     add_log('email sent to: ' . $to_address, 'sendEmailExpectedBuilds');
